@@ -2,7 +2,7 @@ import logging
 import re
 import requests
 from bs4 import BeautifulSoup
-from telegram import InputMediaPhoto, Update
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = "8080984044:AAHFO5lM_KULdtFjc56Aq2NgGtzLRm_sapo"
@@ -11,34 +11,38 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Привет! Отправь мне ссылку на товарную категорию сайта Post4u (например, Zara, Lefties)."
-    )
-
+    await update.message.reply_text("Привет! Отправь мне ссылку на товарную категорию сайта Post4u (например, Zara, Lefties).")
 
 def parse_post4u(url):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
         response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        items = soup.select(".product-layout")
+        # По новому HTML-сайта: товары внутри блоков с классом "product-thumb"
+        items = soup.select(".product-thumb")
         results = []
 
         for item in items:
+            # Название товара
             title_tag = item.select_one(".caption a")
-            img_tag = item.select_one(".img-responsive")
+            # Ссылка на товар
+            link = title_tag['href'] if title_tag else None
+            # Картинка товара — в теге img внутри .image, берём src или data-src
+            img_tag = item.select_one(".image img")
+            img_url = None
+            if img_tag:
+                img_url = img_tag.get("data-src") or img_tag.get("src")
+                if img_url and img_url.startswith("//"):
+                    img_url = "https:" + img_url
+            # Цена — в блоке .price
             price_tag = item.select_one(".price")
+            price = price_tag.get_text(strip=True) if price_tag else ""
 
-            if title_tag and img_tag:
+            if title_tag and link and img_url:
                 title = title_tag.get_text(strip=True)
-                link = title_tag['href']
-                img_url = img_tag['src']
-                price = price_tag.get_text(strip=True) if price_tag else ""
-
                 results.append({
                     "title": title,
                     "link": link,
@@ -51,12 +55,10 @@ def parse_post4u(url):
         logger.error(f"Ошибка при парсинге: {e}")
         return []
 
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
 
-    # Гибкая проверка ссылки
-    if "post4u.com.ua" not in url:
+    if not re.match(r"https://www\.post4u\.com\.ua/.+", url):
         await update.message.reply_text("Пожалуйста, отправь ссылку на категорию товаров сайта Post4u.")
         return
 
@@ -76,7 +78,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.warning(f"Не удалось отправить фото: {e}")
             await update.message.reply_text(caption)
 
-
 def main():
     app = Application.builder().token(TOKEN).build()
 
@@ -84,7 +85,6 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
