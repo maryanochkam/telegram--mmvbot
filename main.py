@@ -11,12 +11,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Отправь мне ссылку на товарную категорию сайта Post4u (например, Zara, Lefties).")
+    await update.message.reply_text(
+        "Привет! Отправь мне ссылку на товарную категорию сайта Post4u (например, Zara, Lefties)."
+    )
 
 
 def parse_post4u(url):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
         response = requests.get(url, headers=headers)
@@ -52,7 +55,8 @@ def parse_post4u(url):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
 
-    if not re.match(r"https://www\\.post4u\\.com\\.ua/", url):
+    # Гибкая проверка ссылки
+    if "post4u.com.ua" not in url:
         await update.message.reply_text("Пожалуйста, отправь ссылку на категорию товаров сайта Post4u.")
         return
 
