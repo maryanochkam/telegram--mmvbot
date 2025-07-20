@@ -1,2 +1,3 @@
 #!/bin/bash
-python3 main.py
+chmod +x main.py
+python main.py
